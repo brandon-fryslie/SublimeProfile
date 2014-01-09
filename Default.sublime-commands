@@ -1,0 +1,10 @@
+[
+	{
+		"caption": "SublimeProfile: Save",
+		"command": "sublimeprofile_save"
+	},
+	{
+		"caption": "SublimeProfile: Use",
+		"command": "sublimeprofile_use"
+	}
+]
