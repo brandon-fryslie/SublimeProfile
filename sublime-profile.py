@@ -20,7 +20,6 @@ def run_command(args):
 
 
 def load_settings():
-    # self.settings = sublime.load_settings('GitGutter.sublime-settings')
     self.user_settings = sublime.load_settings('Preferences.sublime-settings')
 
     # Git Binary Setting
@@ -40,7 +39,7 @@ class GitHelper:
         self.git_binary_path = 'git'
         self.repo_name = 'sublime-profile'
 
-    def ensure_gitignore():
+    def ensure_gitignore(self):
 
         tpl = '''
     Package Control.last-run
@@ -108,6 +107,7 @@ class GitHelper:
         return
 
     def load_profile(self, profile_name):
+        self.ensure_remote(profile_name)
         self.git_command('fetch', profile_name)
         self.git_command('checkout', profile_name)
 
@@ -132,7 +132,7 @@ class GitHelper:
     def ensure_remote(self, username):
 
         if (self.git_command('ls-remote', username) is 1):
-            self.git_command('remote', 'https://{0}@github.com/{0}/{1}.git'.format(github_user, self.repo_name))
+            self.git_command('remote', 'add', github_user, 'https://{0}@github.com/{0}/{1}.git'.format(github_user, self.repo_name))
 
         return
 
