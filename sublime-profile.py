@@ -3,7 +3,6 @@ import sublime
 import sublime_plugin
 import subprocess
 
-
 def run_command(args):
     startupinfo = None
     if os.name == 'nt':
@@ -31,31 +30,36 @@ def load_settings():
         self.git_binary_path = git_binary
 
 
-def write_gitignore():
-
-    tpl = '''
-Package Control.last-run
-Package Control.ca-list
-Package Control.ca-bundle
-Package Control.system-ca-bundle
-Package Control.cache/
-Package Control.ca-certs/
-    '''.strip()
-
-    gitignore_path = os.path.join(sublime.packages_path(), 'User', '.gitignore')
-
-    if not os.path.isfile(gitignore_path):
-        with open(gitignore_path, 'w') as gitignore_file:
-            gitignore_file.write(tpl)
+def fail(message):
+    print(message)
+    exit()
 
 class GitHelper:
 
     def __init__(self):
         self.git_binary_path = 'git'
+        self.repo_name = 'sublime-profile'
 
-    def git_command(self, command, args):
+    def ensure_gitignore():
 
+        tpl = '''
+    Package Control.last-run
+    Package Control.ca-list
+    Package Control.ca-bundle
+    Package Control.system-ca-bundle
+    Package Control.cache/
+    Package Control.ca-certs/
+        '''.strip()
+
+        gitignore_path = os.path.join(sublime.packages_path(), 'User', '.gitignore')
+
+        if not os.path.isfile(gitignore_path):
+            with open(gitignore_path, 'w') as gitignore_file:
+                gitignore_file.write(tpl)
+
+    def git_command(self, command, *args):
         a = list(args)
+
         a.insert(0, command)
 
         (result, err, returncode) = run_command([self.git_binary_path] + a)
@@ -64,7 +68,7 @@ class GitHelper:
 
         return returncode
 
-    def init(self):
+    def ensure_git_repo(self):
 
         user_dir = os.path.join(sublime.packages_path(), 'User')
 
@@ -74,25 +78,63 @@ class GitHelper:
 
             print('Creating repo in {}...'.format(user_dir))
 
+            self.ensure_gitignore()
+
             self.git_command('init')
 
-    # def __getattribute__(self, name):
-
-        # print('calling get attr', name)
-
-        # return self.git_command(name, )
+            # Setting always rebase
+            self.git_command('config', 'branch.autosetuprebase', 'always')
 
     def add(self, *args):
 
         return self.git_command('add', args)
 
-    def commit(self, *args):
+    def save_profile(self, message):
 
-        return self.git_command('commit', args)
+        message = str(message)
 
-    def remote(self, *args):
+        self.git_command('add', '.')
 
-        return self.git_command('remote', args)
+        current_branch = self.get_current_branch()
+
+        print('current_branch: ', current_branch)
+
+        self.ensure_remote(current_branch)
+
+        self.git_command('commit', '-m', message)
+
+        self.git_command('push', current_branch, 'HEAD:{}'.format(current_branch))
+
+        return
+
+    def load_profile(self, profile_name):
+        self.git_command('fetch', profile_name)
+        self.git_command('checkout', profile_name)
+
+        sublime.load_settings('Package Control.sublime-settings')
+
+
+    def get_current_dir(self):
+        (result, _, _) = run_command(['pwd'])
+        print(result)
+
+    def get_current_branch(self):
+        (result, _, _) = run_command([self.git_binary_path, 'symbolic-ref', 'HEAD', '2>/dev/null', '|', 'cut', '-d"/"', '-f', '3'])
+
+        self.get_current_dir()
+
+        return str(result)
+
+    def ensure_on_branch(branch):
+        if (this.get_current_branch()) != branch:
+            self.checkout(branch)
+
+    def ensure_remote(self, username):
+
+        if (self.git_command('ls-remote', username) is 1):
+            self.git_command('remote', 'https://{0}@github.com/{0}/{1}.git'.format(github_user, self.repo_name))
+
+        return
 
     def push(self, *args):
 
@@ -106,7 +148,10 @@ class GitHelper:
 
         args = []
 
-        if (run_command(['git', 'show-ref', '--verify', '--quiet', 'refs/heads/{}'.format(github_user)]) is 0):
+        self.git_command('show-ref', '--verify', '--quiet', 'refs/heads/{}'.format(github_user))
+
+        # Check if local branch already exists
+        if (run_command(['git', ]) is 0):
             args.append('-b')
 
         args.append(github_user)
@@ -123,44 +168,29 @@ class SublimeprofileSaveCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
 
-        # Init git repo if not there
-        write_gitignore()
-        git.init()
+        # self.view.window().show_input_panel("message:", "", self.on_done, None, None)
+    
+    # def on_done(self, message):
 
-        git.add('.')
+        git.ensure_git_repo()
 
-        git.commit('-am', '{}'.format(datetime.datetime.now()))
+        # if message is '':
+        message = datetime.datetime.now()
 
-        # Add username as remote
-        github_user = 'third-eye-brown'
-        github_pass = 'Ws3Qa2ii'
-
-        repo_name = 'sublime-profile'
-
-        # rm Package\ Control.{last-run,ca-list,ca-bundle,system-ca-bundle,ca-certs}
-
-        # git.remote('add', github_user, 'https://{0}@github.com/{0}/{1}.git'.format(github_user, repo_name))
-
-        # git.push(github_user, 'HEAD:master')
+        git.save_profile(message)
 
 class SublimeprofileUseCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
 
-        # git.feltch
-
         self.view.window().show_input_panel("username:", "", self.on_done, None, None)
 
-    def on_done(self, github_user):
-        write_gitignore()
-        git.init()
+    def on_done(self, profile_name):
 
-        repo_name = 'sublime-profile'
+        git.ensure_git_repo()
 
-        # git.remote('add', github_user, 'https://{0}@github.com/{0}/{1}.git'.format(github_user, repo_name))
+        git.load_profile(profile_name)
 
-        git.fetch(github_user)
-
-        git.checkout(github_user)
-
-        # sublime.load_settings('Package Control.sublime-settings')
+class SublimeprofileEditCommand(sublime_plugin.TextCommand):
+    def run(self, edit):
+        run_command(['subl', '-n', os.path.expanduser('~/Library/Application Support/Sublime Text 3/Packages/User')])
